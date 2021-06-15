@@ -1,13 +1,19 @@
 creds.yml
 trades.txt
-
+binance-longhold/creds.yml
+binance-longhold/trades.txt
+failed_coins.txt
+binance-longhold/failed_coins.txt
 __*__
 
 # Dont upload json files
 *.json
+binance-longhold/*.json
 
 # Virtual environment
 .venv
+binance-longhold/.venv
 
 # IDE settings
 .vscode
+binance-longhold/.vscode

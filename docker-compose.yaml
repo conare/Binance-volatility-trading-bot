@@ -1,0 +1,28 @@
+version: "3.9"
+services:
+  binance-shorthold:
+    build: .
+    command: python3 bot.py
+    container_name: binance-shorthold
+    restart: always
+    volumes:
+      - bot-shorthold:/app
+    networks:
+      - binance-shorthold
+  binance-longhold:
+    build: binance-longhold
+    command: python3 bot.py
+    container_name: binance-longhold
+    restart: always
+    volumes:
+      - bot-longhold:/app
+    networks:
+      - binance-longhold
+volumes:
+  bot-shorthold:
+    name: bot-shorthold
+  bot-longhold:
+    name: bot-longhold
+networks:
+  binance-shorthold: {}
+  binance-longhold: {}
