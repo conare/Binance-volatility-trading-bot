@@ -4,6 +4,8 @@ binance-longhold/creds.yml
 binance-longhold/trades.txt
 failed_coins.txt
 binance-longhold/failed_coins.txt
+binance-longhold/signals/*.exc
+signals/*.exc
 __*__
 
 # Dont upload json files

@@ -44,27 +44,34 @@ EXCHANGE = 'BINANCE'
 SCREENER = 'CRYPTO'
 PAIR_WITH = 'USDT'
 TICKERS = 'allcoins.txt'
-TEST_MODE = True
+TEST_MODE = False
 TIME_TO_WAIT = 1 # Minutes to wait between analysis
 FULL_LOG = False # Display analysis result to console
 
-def set_stop_loss(pair, stop_loss):
+def sell_coins(sell_coins, stop_loss_coins):
   # load testmode of mainnet
   coins_bought = {}
   coins_bought_file_path = 'coins_bought.json'
+  sell_coins_file_path = 'sell_coins.json'
   if TEST_MODE:
     coins_bought_file_path = 'test_' + coins_bought_file_path
+    sell_coins_file_path = 'test_' + sell_coins_file_path
     
   # if saved coins_bought json file exists and it's not empty then load it
   if os.path.isfile(coins_bought_file_path) and os.stat(coins_bought_file_path).st_size!= 0:
-    with open(coins_bought_file_path) as file:
+    with open(coins_bought_file_path) as f_buy:
       # coin already exist in file
-      coins_bought = json.load(file)
-      if pair in coins_bought:
-        coins_bought[pair]['stop_loss'] = stop_loss
-    # write to file
-    with open(coins_bought_file_path, 'w') as file:
-        json.dump(coins_bought, file, indent=2)
+      coins_bought = json.load(f_buy)
+        # set stop loss
+      for coin in coins_bought:
+        if coin in stop_loss_coins:
+          # set stop loss
+          coins_bought[coin]['stop_loss'] = stop_loss_coins[coin]['stop_loss']
+        if coin in sell_coins:
+          # sell coins
+          coins_bought[coin]['sell'] = 'SELL'
+      with open(sell_coins_file_path, 'w') as file:
+        json.dump(coins_bought, file, indent=4)
         
 # write to file
 def write_failed_coins(pairs):
@@ -141,8 +148,7 @@ def analyze(pairs):
       elif 'SELL' in daily_signal and 'BUY' in weekly_signal: 
         sl_signal_coins[pair] = pair
         # Set stop loss
-        sl_signal_coins['daily_close_price'] = daily_analysis.indicators['close']
-        set_stop_loss(pair, daily_analysis.indicators['close'])
+        sl_signal_coins[pair] = {'stop_loss': daily_analysis.indicators['close']}
         if FULL_LOG:
           print(f'SignalMACD: Daily signal is bearish for coin {pair}')
           print(f"SignalMACD: Stop loss price for {pair} is {daily_analysis.indicators['close']}")
@@ -169,7 +175,9 @@ def analyze(pairs):
   return buy_signal_coins, sell_signal_coins, sl_signal_coins, failed_coins
 
 def do_work():
-  buy_signal_coins, sell_signal_coins, sl_signal_coins = {}, {}, {}
+  buy_signal_coins = {}
+  sell_signal_coins = {}
+  sl_signal_coins = {}
   pairs = {}
 
   pairs=[line.strip() for line in open(TICKERS)]
@@ -182,6 +190,8 @@ def do_work():
     
     # record all coins that failed weekly macd
     write_failed_coins(failed_coins)
+    # set stop loss or sell coins
+    sell_coins(sell_signal_coins, sl_signal_coins)
     if FULL_LOG:
       print(f'SignalMACD: Num buy signals {buy_signal_coins}')
       print(f'SignalMACD: Num sell signals {sell_signal_coins}')

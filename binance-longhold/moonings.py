@@ -360,19 +360,22 @@ def sell_coins():
     #last_price = get_price(add_to_historical=True) # don't populate rolling window
     coins_sold = {}
 
-    for coin in list(coins_bought):
+    for coin in list(coins_for_sell):
         # define stop loss and take profit
         SL = 0.0
-        if 'stop_loss' in coins_bought[coin]:
-            SL = float(coins_bought[coin]['stop_loss'])
+        is_sell = False
+        if 'stop_loss' in coins_for_sell[coin]:
+            SL = float(coins_for_sell[coin]['stop_loss'])
+        if 'sell' in coins_for_sell[coin]:
+            is_sell = True
 
         LastPrice = float(last_price[coin]['price'])
-        BuyPrice = float(coins_bought[coin]['bought_at'])
+        BuyPrice = float(coins_for_sell[coin]['bought_at'])
         PriceChange = float((LastPrice - BuyPrice) / BuyPrice * 100)
-
-        # Only sell if last price is greater than stop_loss
-        if LastPrice < SL:
-            print(f"{txcolors.SELL_PROFIT if PriceChange >= 0. else txcolors.SELL_LOSS}TP or SL reached, selling {coins_bought[coin]['volume']} {coin} - {BuyPrice} - {LastPrice} : {PriceChange-(TRADING_FEE*2):.2f}% Est:${(QUANTITY*(PriceChange-(TRADING_FEE*2)))/100:.2f}{txcolors.DEFAULT}")
+        is_sell = False
+        # Only sell if last price is less than stop_loss
+        if is_sell or SL > LastPrice:
+            print(f"{txcolors.SELL_PROFIT if PriceChange >= 0. else txcolors.SELL_LOSS}TP or SL reached, selling {coins_for_sell[coin]['volume']} {coin} - {BuyPrice} - {LastPrice} : {PriceChange-(TRADING_FEE*2):.2f}% Est:${(QUANTITY*(PriceChange-(TRADING_FEE*2)))/100:.2f}{txcolors.DEFAULT}")
 
             # try to create a real order
             try:
@@ -392,7 +395,7 @@ def sell_coins():
 
             # run the else block if coin has been sold and create a dict for each coin sold
             else:
-                coins_sold[coin] = coins_bought[coin]
+                coins_sold[coin] = coins_for_sell[coin]
 
                 # prevent system from buying this coin for the next TIME_DIFFERENCE minutes
                 volatility_cooloff[coin] = datetime.now()
@@ -521,9 +524,15 @@ if __name__ == '__main__':
 
     # try to load all the coins bought by the bot if the file exists and is not empty
     coins_bought = {}
+    coins_for_sell = {}
 
     # path to the saved coins_bought file
     coins_bought_file_path = 'coins_bought.json'
+    sell_file_path  = 'sell_coins.json'
+    # use separate files for testing and live trading
+    if TEST_MODE:
+        coins_bought_file_path = 'test_' + coins_bought_file_path
+        sell_file_path  = 'test_' + sell_file_path
 
     # rolling window of prices; cyclical queue
     historical_prices = [None] * (TIME_DIFFERENCE * RECHECK_INTERVAL)
@@ -531,15 +540,16 @@ if __name__ == '__main__':
 
     # prevent including a coin in volatile_coins if it has already appeared there less than TIME_DIFFERENCE minutes ago
     volatility_cooloff = {}
-
-    # use separate files for testing and live trading
-    if TEST_MODE:
-        coins_bought_file_path = 'test_' + coins_bought_file_path
-
+    
     # if saved coins_bought json file exists and it's not empty then load it
     if os.path.isfile(coins_bought_file_path) and os.stat(coins_bought_file_path).st_size!= 0:
-        with open(coins_bought_file_path) as file:
-                coins_bought = json.load(file)
+        with open(coins_bought_file_path) as b_file:
+             coins_bought = json.load(b_file)
+
+    # if saved sell_coins json file exists and it's not empty then load it
+    if os.path.isfile(sell_file_path) and os.stat(sell_file_path).st_size!= 0:
+        with open(sell_file_path) as s_file:
+            coins_for_sell = json.load(s_file)
 
     print('Press Ctrl-Q to stop the script')
 
@@ -593,5 +603,4 @@ if __name__ == '__main__':
         except ConnectionError as ce:
             CONNECTION_ERROR_COUNT +=1 
             print(f'{txcolors.WARNING}We got a timeout error from from binance. Going to re-loop. Current Count: {CONNECTION_ERROR_COUNT}\n{ce}{txcolors.DEFAULT}')
-
 
