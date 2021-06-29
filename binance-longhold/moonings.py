@@ -184,6 +184,7 @@ def wait_for_price():
 
     # Here goes new code for external signalling
     externals = external_signals()
+    print(f'external coins {externals}')
     exnumber = 0
 
     for excoin in externals:
@@ -198,16 +199,14 @@ def wait_for_price():
 
 def external_signals():
     external_list = {}
-    signals = {}
-
     # check directory and load pairs from files into external_list
-    signals = glob.glob("signals/*.exs")
-    for filename in signals:
-        for line in open(filename):
+    buy_filename = 'signals/buy.exs'
+    if os.path.isfile(buy_filename) and os.stat(buy_filename).st_size!= 0:
+        for line in open(buy_filename):
             symbol = line.strip()
             external_list[symbol] = symbol
         try:
-            os.remove(filename)
+            os.remove(buy_filename)
         except:
             if DEBUG: print(f'{txcolors.WARNING}Could not remove external signalling file{txcolors.DEFAULT}')
 
@@ -372,7 +371,6 @@ def sell_coins():
         LastPrice = float(last_price[coin]['price'])
         BuyPrice = float(coins_for_sell[coin]['bought_at'])
         PriceChange = float((LastPrice - BuyPrice) / BuyPrice * 100)
-        is_sell = False
         # Only sell if last price is less than stop_loss
         if is_sell or SL > LastPrice:
             print(f"{txcolors.SELL_PROFIT if PriceChange >= 0. else txcolors.SELL_LOSS}TP or SL reached, selling {coins_for_sell[coin]['volume']} {coin} - {BuyPrice} - {LastPrice} : {PriceChange-(TRADING_FEE*2):.2f}% Est:${(QUANTITY*(PriceChange-(TRADING_FEE*2)))/100:.2f}{txcolors.DEFAULT}")
@@ -441,10 +439,13 @@ def remove_from_portfolio(coins_sold):
     '''Remove coins sold due to SL or TP from portfolio'''
     for coin in coins_sold:
         coins_bought.pop(coin)
+        coins_for_sell.pop(coin)
 
-    with open(coins_bought_file_path, 'w') as file:
-        json.dump(coins_bought, file, indent=2)
+    with open(coins_bought_file_path, 'w') as b_file:
+        json.dump(coins_bought, b_file, indent=2)
 
+    with open(sell_coins_file_path, 'w') as s_file:
+        json.dump(coins_for_sell, s_file, indent=2)
 
 def write_log(logline):
     timestamp = datetime.now().strftime("%d/%m %H:%M:%S")
@@ -528,11 +529,11 @@ if __name__ == '__main__':
 
     # path to the saved coins_bought file
     coins_bought_file_path = 'coins_bought.json'
-    sell_file_path  = 'sell_coins.json'
+    sell_coins_file_path  = 'sell_coins.json'
     # use separate files for testing and live trading
     if TEST_MODE:
         coins_bought_file_path = 'test_' + coins_bought_file_path
-        sell_file_path  = 'test_' + sell_file_path
+        sell_coins_file_path  = 'test_' + sell_coins_file_path
 
     # rolling window of prices; cyclical queue
     historical_prices = [None] * (TIME_DIFFERENCE * RECHECK_INTERVAL)
@@ -547,8 +548,8 @@ if __name__ == '__main__':
              coins_bought = json.load(b_file)
 
     # if saved sell_coins json file exists and it's not empty then load it
-    if os.path.isfile(sell_file_path) and os.stat(sell_file_path).st_size!= 0:
-        with open(sell_file_path) as s_file:
+    if os.path.isfile(sell_coins_file_path) and os.stat(sell_coins_file_path).st_size!= 0:
+        with open(sell_coins_file_path) as s_file:
             coins_for_sell = json.load(s_file)
 
     print('Press Ctrl-Q to stop the script')
@@ -558,7 +559,7 @@ if __name__ == '__main__':
             print('WARNING: You are using the Mainnet and live funds. Waiting 30 seconds as a security measure')
             time.sleep(30)
 
-    signals = glob.glob("signals/*.exs")
+    signals = glob.glob("signals/buy.exs")
     for filename in signals:
         for line in open(filename):
             try:

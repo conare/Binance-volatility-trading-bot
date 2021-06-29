@@ -44,9 +44,9 @@ EXCHANGE = 'BINANCE'
 SCREENER = 'CRYPTO'
 PAIR_WITH = 'USDT'
 TICKERS = 'allcoins.txt'
-TEST_MODE = False
+TEST_MODE = True
 TIME_TO_WAIT = 1 # Minutes to wait between analysis
-FULL_LOG = False # Display analysis result to console
+FULL_LOG = True # Display analysis result to console
 
 def sell_coins(sell_coins, stop_loss_coins):
   # load testmode of mainnet
@@ -70,8 +70,9 @@ def sell_coins(sell_coins, stop_loss_coins):
         if coin in sell_coins:
           # sell coins
           coins_bought[coin]['sell'] = 'SELL'
+          coins_bought[coin]['stop_loss'] = sell_coins[coin]['stop_loss']
       with open(sell_coins_file_path, 'w') as file:
-        json.dump(coins_bought, file, indent=4)
+        json.dump(coins_bought, file, indent=2)
         
 # write to file
 def write_failed_coins(pairs):
@@ -92,8 +93,13 @@ def analyze(pairs):
   weekly_handler = {}
   failed_coins = []
   
-  if os.path.exists('signals/signalmacd.exs'):
-    os.remove('signals/signalmacd.exs')
+  # remove all files in signals
+  directory ='./signals'
+  files_in_directory = os.listdir(directory)
+  filtered_files = [file for file in files_in_directory if file.endswith('.exs')]
+  for file in filtered_files:
+    path_to_file = os.path.join(directory, file)
+    os.remove(path_to_file)
 
   for pair in pairs:
     # daily chart check
@@ -156,6 +162,7 @@ def analyze(pairs):
         oscSLCheck += 1
       elif 'SELL' in weekly_signal: 
         sell_signal_coins[pair] = pair
+        sell_signal_coins[pair] = {'stop_loss': daily_analysis.indicators['close']}
         if FULL_LOG:
           print(f'SignalMACD: Both weekly and daily signals for coin {pair} are bearish. Sell immediately!')
         oscSellCheck += 1
@@ -163,14 +170,18 @@ def analyze(pairs):
     if oscBuyCheck > 0:
       if FULL_LOG:
         print(f'SignalMACD:{pair} Buy signals: {oscBuyCheck}')
-      with open('signals/signalmacd.exs','a+') as f:
+      with open('signals/buy.exs','a+') as f:
         f.write(pair + '\n')
     elif oscSellCheck > 0:
       if FULL_LOG:
         print(f'SignalMACD:{pair} Sell signals: {oscSellCheck}')
+      with open('signals/sell.exs','a+') as f:
+        f.write(pair + '\n')
     elif oscSLCheck > 0:
       if FULL_LOG:
         print(f'SignalMACD:{pair} Set stop loss signals: {oscSLCheck}') 
+      with open('signals/stop_loss.exs','a+') as f:
+        f.write(pair + '\n')
 
   return buy_signal_coins, sell_signal_coins, sl_signal_coins, failed_coins
 
